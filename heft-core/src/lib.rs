@@ -16,6 +16,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     /// Build a deterministic fixture tree:
     /// root/
@@ -29,7 +30,11 @@ mod tests {
     ///     nested/
     ///       deep.log   50 B
     fn fixture() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("heft_test_{}", std::process::id()));
+        // Tests run concurrently within one process (shared pid), so pid
+        // alone isn't a unique directory name - add a per-call counter.
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("heft_test_{}_{n}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("docs")).unwrap();
         fs::create_dir_all(dir.join("media/nested")).unwrap();
